@@ -1,2 +1,4 @@
-# ibrahim3sal-Unit-testing-2
-Assignment repo for assignment/1-11 (Unit testing 2)
+# Unit Testing & Architecture Testing — Mini Checkout Engine
+
+**Student Name:** Ibrahim Asal  
+**Group / ID:** [3]
