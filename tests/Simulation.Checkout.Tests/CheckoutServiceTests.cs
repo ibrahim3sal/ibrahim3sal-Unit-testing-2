@@ -5,6 +5,7 @@ using Simulation.Checkout.Application;
 using Simulation.Checkout.Application.Abstractions;
 using Simulation.Checkout.Domain;
 using Simulation.Checkout.Domain.Exceptions;
+using Simulation.Checkout.Tests.TestData;
 
 namespace Simulation.Checkout.Tests;
 
@@ -304,4 +305,43 @@ public class CheckoutServiceTests
             Times.Never);
     }
 
+    
+    [Fact]
+    public async Task CheckoutAsync_WhenOrderIsCreatedByAutoFixture_ShouldSucceed()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var order = OrderFixture.CreateValidOrder();
+
+        // Act
+        var receipt = await sut.CheckoutAsync(order);
+
+        // Assert
+        receipt.Should().NotBeNull();
+        receipt.Items.Should().NotBeEmpty();
+        receipt.Items.Should().OnlyContain(
+            item => item.Quantity > 0 && item.UnitPrice >= 0);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenCustomerIsGeneratedByBogus_ShouldPreserveCustomerDetails()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var customer = CustomerFaker.Create();
+
+        var order = new Order
+        {
+            CustomerName = customer.Name,
+            CustomerEmail = customer.Email,
+            Items = CreateOrder(100m).Items
+        };
+
+        // Act
+        var receipt = await sut.CheckoutAsync(order);
+
+        // Assert
+        receipt.CustomerName.Should().Be(customer.Name);
+        receipt.CustomerEmail.Should().Be(customer.Email);
+    }
 }
