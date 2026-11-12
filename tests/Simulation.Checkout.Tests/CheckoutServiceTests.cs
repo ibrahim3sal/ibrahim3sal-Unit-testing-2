@@ -213,4 +213,95 @@ public class CheckoutServiceTests
         receipt.Discount.Should().Be(100m);
         receipt.Total.Should().Be(1400m);
     }
+    
+    [Fact]
+    public async Task CheckoutAsync_WhenOrderIsValid_ShouldSaveOrderAndSendConfirmationOnce()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var order = CreateOrder(500m, 2);
+
+        // Act
+        var receipt = await sut.CheckoutAsync(order);
+
+        // Assert
+        receipt.Should().NotBeNull();
+
+        _orderRepository.Verify(
+            x => x.SaveAsync(order, It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _notificationService.Verify(
+            x => x.SendOrderConfirmationAsync(
+                It.IsAny<CheckoutReceipt>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenItemIsOutOfStock_ShouldNotSaveOrSendConfirmation()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var order = CreateOrder(500m, 2);
+
+        _inventoryService
+            .Setup(x => x.IsAvailableAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        Func<Task> act = () => sut.CheckoutAsync(order);
+
+        // Assert
+        await act.Should().ThrowAsync<InsufficientInventoryException>();
+
+        _orderRepository.Verify(
+            x => x.SaveAsync(
+                It.IsAny<Order>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _notificationService.Verify(
+            x => x.SendOrderConfirmationAsync(
+                It.IsAny<CheckoutReceipt>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+    
+    [Fact]
+    public async Task CheckoutAsync_WhenQuantityIsInvalid_ShouldNotCallAnyService()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var order = CreateOrder(500m, 0);
+
+        // Act
+        Func<Task> act = () => sut.CheckoutAsync(order);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidQuantityException>();
+
+        _inventoryService.Verify(
+            x => x.IsAvailableAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _orderRepository.Verify(
+            x => x.SaveAsync(
+                It.IsAny<Order>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _notificationService.Verify(
+            x => x.SendOrderConfirmationAsync(
+                It.IsAny<CheckoutReceipt>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
 }
